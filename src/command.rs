@@ -60,7 +60,7 @@ impl Command {
         }
     }
 
-    fn args(&mut self, body: serde_json::Value) {
+    pub fn args(&mut self, body: serde_json::Value) {
         self.args = Some(body);
     }
 }
