@@ -1,6 +1,6 @@
 use reqwest::{Client, header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE, ACCEPT_CHARSET}};
 use serde::Deserialize;
-use serde_json::{json, Map};
+use serde_json::json;
 pub mod command;
 use command::{Command, Sender};
 
@@ -11,6 +11,8 @@ pub struct Session {
     app_secret : String,
     domain : String,
     token : Token,
+    client : Client,
+    header : HeaderMap,
 }
 
 #[derive(Deserialize, Debug, Default)]
@@ -29,21 +31,29 @@ impl Session {
             app_secret: app_secret,
             domain: domain,
             token: Token::default(),
+            client: Client::new(),
+            header: HeaderMap::new(),
         };
         session.token = session.request_token().await.expect("request token failed");
+
+        session.header.insert(CONTENT_TYPE, HeaderValue::from_str("application/json").unwrap());
+        session.header.insert(ACCEPT, HeaderValue::from_str("text/plain").unwrap());
+        session.header.insert(ACCEPT_CHARSET, HeaderValue::from_str("UTF-8").unwrap());
+        session.header.insert("authorization", HeaderValue::from_str(&format!("{} {}", session.token.token_type, session.token.access_token)).unwrap());
+        session.header.insert("appkey", HeaderValue::from_str(&session.app_key).unwrap());
+        session.header.insert("appsecret", HeaderValue::from_str(&session.app_secret).unwrap());
         Ok(session)
     }
 
     async fn request_token(&self) -> Result<Token> {
-        let path = "/oauth2/tokenP";
-        let url = self.domain.clone() + path;
+        let url = format!("{}/oauth2/tokenP", self.domain);
         let body = json!({
             "grant_type": "client_credentials",
             "appkey": self.app_key,
             "appsecret": self.app_secret
         });
 
-        let response = Client::new()
+        let response = self.client
             .post(url)
             .json(&body)
             .send().await.expect("request send failed");
@@ -51,39 +61,15 @@ impl Session {
         Ok(res)
     }
 
-    fn make_url(mut url: String, body: &serde_json::Value) -> String {
-        let map : &Map<String, serde_json::Value> = body.as_object().unwrap();
-        let mut first = true;
-        for (key, value) in map.iter() {
-            if first {
-                url.push('?');
-                first = false;
-            } else {
-                url.push('&');
-            }
-            url.push_str(key);
-            url.push('=');
-            url.push_str(value.as_str().unwrap());
-        }
-        url
-    }
-
     async fn __fetch(&self, path: &str, tr_id: &str, sender: &Sender, body: &Option<serde_json::Value>) -> Result<serde_json::Value> {
-        let mut url = format!("{}{}", self.domain, path);
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_str("application/json").unwrap());
-        headers.insert(ACCEPT, HeaderValue::from_str("text/plain").unwrap());
-        headers.insert(ACCEPT_CHARSET, HeaderValue::from_str("UTF-8").unwrap());
-        headers.insert("authorization", HeaderValue::from_str(&format!("{} {}", self.token.token_type, self.token.access_token)).unwrap());
-        headers.insert("appkey", HeaderValue::from_str(&self.app_key).unwrap());
-        headers.insert("appsecret", HeaderValue::from_str(&self.app_secret).unwrap());
-        headers.insert("tr_id", HeaderValue::from_str(tr_id).unwrap());
-
+        let url = format!("{}{}", self.domain, path);
+        let mut header = self.header.clone();
+        header.insert("tr_id", HeaderValue::from_str(tr_id).unwrap());
         let request = match sender {
             Sender::POST => {
-                let request = Client::new()
+                let request = self.client
                     .post(url)
-                    .headers(headers);
+                    .headers(header);
                 if let Some(body) = body {
                     request.json(&body)
                 } else {
@@ -91,13 +77,14 @@ impl Session {
                 }
             },
             Sender::GET => {
-                if let Some(body) = body {
-                    url = Self::make_url(url, &body);
-                }
-                let request = Client::new()
+                let request = self.client
                     .get(url)
-                    .headers(headers);
-                request
+                    .headers(header);
+                if let Some(body) = body {
+                    request.query(&body)
+                } else {
+                    request
+                }
             }
         };
 
