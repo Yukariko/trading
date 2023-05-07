@@ -1,7 +1,6 @@
 use trading::command::*;
 use std::marker::PhantomData;
 
-
 pub struct Algorithm<T: ?Sized> {
     kind: PhantomData<T>,
     results : Option<Vec<serde_json::Value>>,
