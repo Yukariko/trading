@@ -4,6 +4,7 @@ pub enum Period {
     Day,
     Week,
     Month,
+    Year,
 }
 
 impl Period {
@@ -12,6 +13,7 @@ impl Period {
             Period::Day => "D",
             Period::Week => "W",
             Period::Month => "M",
+            Period::Year => "Y",
         }
     }
 }
@@ -27,6 +29,7 @@ pub enum CommandType {
     Balance,
     OrderBuy,
     OrderSell,
+    DailyValue,
 }
 
 pub struct CommandBase {
@@ -44,30 +47,35 @@ impl Command {
     pub fn new(command: CommandType) -> Command {
         let command_base = match command {
             CommandType::Price => CommandBase {
-                path : "/uapi/domestic-stock/v1/quotations/inquire-price",
-                tr_id : "FHKST01010100",
-                sender : Sender::GET
+                path: "/uapi/domestic-stock/v1/quotations/inquire-price",
+                tr_id: "FHKST01010100",
+                sender: Sender::GET
             },
             CommandType::DailyPrice => CommandBase {
-                path : "/uapi/domestic-stock/v1/quotations/inquire-daily-price",
-                tr_id : "FHKST01010400",
-                sender : Sender::GET
+                path: "/uapi/domestic-stock/v1/quotations/inquire-daily-price",
+                tr_id: "FHKST01010400",
+                sender: Sender::GET
             },
             CommandType::Balance => CommandBase {
-                path : "/uapi/domestic-stock/v1/trading/inquire-balance",
-                tr_id : "TTTC8434R",
-                sender : Sender::GET
+                path: "/uapi/domestic-stock/v1/trading/inquire-balance",
+                tr_id: "TTTC8434R",
+                sender: Sender::GET
             },
             CommandType::OrderBuy => CommandBase {
-                path : "/uapi/domestic-stock/v1/trading/order-cash",
-                tr_id : "TTTC0802U",
-                sender : Sender::POST
+                path: "/uapi/domestic-stock/v1/trading/order-cash",
+                tr_id: "TTTC0802U",
+                sender: Sender::POST
             },
             CommandType::OrderSell => CommandBase {
-                path : "/uapi/domestic-stock/v1/trading/order-cash",
-                tr_id : "TTTC0801U",
-                sender : Sender::POST
+                path: "/uapi/domestic-stock/v1/trading/order-cash",
+                tr_id: "TTTC0801U",
+                sender: Sender::POST
             },
+            CommandType::DailyValue => CommandBase {
+                path: "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
+                tr_id: "FHKST03010100",
+                sender: Sender::GET
+            }
         };
 
         Command {
@@ -95,13 +103,13 @@ pub trait PriceCommand {
 impl PriceCommand for Command {}
 
 pub trait DailyPriceCommand {
-    fn new(stock_no: &str, period: Period) -> Command {
+    fn new(stock_no: &str, period: &Period) -> Command {
         let mut command = Command::new(CommandType::DailyPrice);
         command.args(json!({
             "fid_cond_mrkt_div_code" : "J",
             "fid_input_iscd" : stock_no,
             "fid_period_div_code" : period.as_str(),
-            "fid_org_adj_prc" : "1",
+            "fid_org_adj_prc" : "0",
         }));
         command
     }
@@ -164,3 +172,21 @@ pub trait OrderSellCommand {
 }
 
 impl OrderSellCommand for Command {}
+pub trait DailyValueCommand {
+    fn new(stock_no: &str, period: &Period, start: &str, end: &str) -> Command {
+        let mut command = Command::new(CommandType::DailyValue);
+        command.args(json!({
+            "fid_cond_mrkt_div_code" : "J",
+            "fid_input_iscd" : stock_no,
+            "FID_INPUT_DATE_1" : start,
+            "FID_INPUT_DATE_2" : end,
+            "fid_period_div_code" : period.as_str(),
+            "fid_org_adj_prc" : "0",
+        }));
+        command
+    }
+}
+
+impl DailyValueCommand for Command {}
+
+

@@ -27,7 +27,7 @@ impl Strategy {
         println!("samsung : {}", price);
 
         // daily price of samsung
-        let daily_price_cmd = <Command as DailyPriceCommand>::new("005930", Period::Day);
+        let daily_price_cmd = <Command as DailyPriceCommand>::new("005930", &Period::Day);
         let price = self.session.execute(&daily_price_cmd).await.expect("daily price cmd failed");
         println!("samsung : {}", price);
 
@@ -60,6 +60,19 @@ impl Strategy {
             println!("{}", value);
         }
 
+        Ok(())
+    }
+
+    pub async fn run_value_momentum(&self, account_no: String, account_cd: String, ammount: u32) -> Result<()> {
+        let mut momentum = Algorithm::<dyn ValueMomentum>::new();
+        let commands = momentum.generate("005930", Period::Month);
+        let res = self.session.execute_vec(&commands).await.expect("execute vec failed");
+        if !momentum.parse(res) {
+            return Err("parse failed".into());
+        }
+        if let Some(value) = momentum.get_value(1, 12) {
+            println!("{}", value);
+        }
         Ok(())
     }
 }
