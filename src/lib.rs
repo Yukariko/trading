@@ -97,4 +97,13 @@ impl Session {
         let res = self.__fetch(command.base.path, command.base.tr_id, &command.base.sender, &command.args).await.expect("__fetch failed");
         Ok(res)
     }
+
+    pub async fn execute_vec(&self, commands: &Vec<Command>) -> Result<Vec<serde_json::Value>> {
+        let mut results = Vec::<serde_json::Value>::with_capacity(commands.len());
+        for command in commands {
+            let res = self.__fetch(command.base.path, command.base.tr_id, &command.base.sender, &command.args).await.expect("__fetch failed");
+            results.push(res);
+        }
+        Ok(results)
+    }
 }
