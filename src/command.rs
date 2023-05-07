@@ -1,5 +1,21 @@
 use serde_json::json;
 
+pub enum Period {
+    Day,
+    Week,
+    Month,
+}
+
+impl Period {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Period::Day => "D",
+            Period::Week => "W",
+            Period::Month => "M",
+        }
+    }
+}
+
 pub enum Sender {
     GET,
     POST,
@@ -79,13 +95,13 @@ pub trait PriceCommand {
 impl PriceCommand for Command {}
 
 pub trait DailyPriceCommand {
-    fn new(stock_no: &str) -> Command {
+    fn new(stock_no: &str, period: Period) -> Command {
         let mut command = Command::new(CommandType::DailyPrice);
         command.args(json!({
             "fid_cond_mrkt_div_code" : "J",
             "fid_input_iscd" : stock_no,
-            "fid_period_div_code" : "D",
-            "fid_org_adj_prc" : "0",
+            "fid_period_div_code" : period.as_str(),
+            "fid_org_adj_prc" : "1",
         }));
         command
     }
