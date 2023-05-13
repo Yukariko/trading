@@ -1,4 +1,4 @@
-use trading::command::*;
+use crate::command::*;
 use std::marker::PhantomData;
 
 pub struct Algorithm<T: ?Sized> {

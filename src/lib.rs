@@ -2,6 +2,9 @@ use reqwest::{Client, header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE, ACC
 use serde::Deserialize;
 use serde_json::json;
 pub mod command;
+pub mod database;
+pub mod strategy;
+pub mod time_runner;
 use command::{Command, Sender};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;

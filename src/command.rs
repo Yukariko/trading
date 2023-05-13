@@ -188,5 +188,3 @@ pub trait DailyValueCommand {
 }
 
 impl DailyValueCommand for Command {}
-
-
