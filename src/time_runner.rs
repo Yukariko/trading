@@ -1,4 +1,5 @@
 use crate::strategy::*;
+use crate::strategy::algorithm::Etc;
 use crate::Session;
 use crate::database::DataBase;
 
@@ -35,6 +36,15 @@ impl TimeRunner {
 
                 }
             }
+        }
+
+        for iter in &mut strategies {
+            let account = match iter {
+                Strategy::Test(account) => account,
+                Strategy::PriceMomentum(account) => account
+            };
+            let stock_to_cash = self.database.calc_all_cell(&account.stocks);
+            println!("stocks : {}, amount : {}, Total : {}", stock_to_cash, account.amount, stock_to_cash + account.amount);
         }
     }
 }

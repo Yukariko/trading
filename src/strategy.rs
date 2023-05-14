@@ -2,6 +2,7 @@ use crate::command::*;
 use crate::database::DataBase;
 pub mod algorithm;
 use algorithm::*;
+use std::collections::HashMap;
 
 pub enum Strategy {
     Test(Account),
@@ -13,6 +14,22 @@ pub struct Account {
     pub account_no: String,
     pub account_cd: String,
     pub amount: i32,
+    pub stocks: HashMap<String, u32>,
+}
+
+impl Account {
+    pub fn new(account_no: String, account_cd: String, amount: i32) -> Self {
+        Account {
+            account_no,
+            account_cd,
+            amount,
+            stocks: HashMap::new(),
+        }
+    }
+
+    pub fn buy_stock(&mut self, stock_no: &str) {
+        *self.stocks.entry(stock_no.to_owned()).or_insert(0) += 1;
+    }
 }
 
 pub trait TestStrategyIterator {
@@ -62,15 +79,17 @@ impl PriceMomentumStrategyIterator for DataBase {
         res.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
         let (best_momentum, best_stock) = &res[res.len() - 1];
-        let columns = self.get_columns(best_stock);
-        let before_price = columns[idx].close_price;
-        let before_date = &columns[idx].date;
-        let current_price = columns[0].close_price;
 
-        println!("{} {} : {} {} -> {} ({})", best_stock, best_momentum, before_date, before_price, current_price, current_price - before_price);
-        account.amount += current_price;
-        account.amount -= before_price;
-        println!("{}", account.amount);
+        if idx == 0 {
+            let order_buy_cmd = <Command as OrderBuyCommand>::new(&account.account_no, &account.account_cd, best_stock, "1");
+            return Some(vec![order_buy_cmd])
+        }
+        let columns = self.get_columns(best_stock);
+        let before_price = columns[idx - 1].open_price;
+        if account.amount >= before_price {
+            account.amount -= before_price;
+            account.buy_stock(best_stock);
+        }
         None
     }
 }

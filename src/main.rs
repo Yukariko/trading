@@ -17,11 +17,7 @@ async fn main() {
     let account_no = env::var("ACCOUNT_NO").expect("ACCOUNT_NO must be set");
     let account_cd = env::var("ACCOUNT_CD").expect("ACCOUNT_CD must be set");
 
-    let account = Account {
-        account_no,
-        account_cd,
-        amount: 500000
-    };
+    let account = Account::new(account_no, account_cd, 2500000);
 
     let strategies = vec![Strategy::Test(account.clone()), Strategy::PriceMomentum(account.clone())];
 
