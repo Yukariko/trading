@@ -2,34 +2,36 @@ use crate::strategy::*;
 use crate::Session;
 use crate::database::DataBase;
 
-pub struct TimeRunner<'a> {
+pub struct TimeRunner {
     session: Session,
-    database: DataBase<'a>,
+    database: DataBase,
+    date_list : Vec<u32>,
 }
 
-impl<'a> TimeRunner<'a> {
-    pub fn new(session: Session) -> TimeRunner<'a> {
+impl TimeRunner {
+    pub fn new(session: Session) -> TimeRunner {
+        let mut database = DataBase::new();
+        let date_list = database.get_date_list();
+
         TimeRunner {
-            session: session,
-            database: DataBase::new(),
+            session,
+            database,
+            date_list,
         }
     }
 
-    pub fn run(&self, start_date: u32, end_date: u32, strategies: Vec<Box<dyn Strategy>>) {
+    pub fn run_back_test(&mut self, start_date: u32, end_date: u32, mut strategies: Vec<Strategy>) {
+        let start_idx = DataBase::find_date(&self.date_list, start_date);
+        let end_idx = DataBase::find_date(&self.date_list, end_date);
+        for idx in start_idx..=end_idx {
+            let idx = self.date_list.len() - idx - 1;
+            for iter in &mut strategies {
+                let res = match iter {
+                    Strategy::Test(account) => <DataBase as TestStrategyIterator>::next(&mut self.database, idx, account),
+                    Strategy::PriceMomentum(ref mut account) => <DataBase as PriceMomentumStrategyIterator>::next(&mut self.database, idx, account),
+                };
 
-        let mut iters: Vec<Box<StrategyIterator>> = strategies
-            .iter()
-            .map(
-                |strategy| strategy.iter(
-                    start_date,
-                    &self.database)
-            )
-            .collect();
-
-        for date in start_date..=end_date {
-            for strategy_iter in &mut iters {
-                if let Some(commands) = strategy_iter.next() {
-                    //let res = self.session.execute_vec(commands)
+                if let Some(commands) = res {
 
                 }
             }

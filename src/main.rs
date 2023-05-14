@@ -12,18 +12,18 @@ async fn main() {
     let domain = env::var("DOMAIN").expect("DOMAIN must be set");
     let session = Session::new(app_key, app_secret, domain).await.expect("create session failed");
 
-    let runner = TimeRunner::new(session);
+    let mut runner = TimeRunner::new(session);
 
     let account_no = env::var("ACCOUNT_NO").expect("ACCOUNT_NO must be set");
     let account_cd = env::var("ACCOUNT_CD").expect("ACCOUNT_CD must be set");
 
     let account = Account {
-        account_no: account_no,
-        account_cd: account_cd,
-        ammount: 500000
+        account_no,
+        account_cd,
+        amount: 500000
     };
 
-    let strategies = vec![TestStrategy::new(account.clone()), PriceMomentumStrategy::new(account.clone())];
+    let strategies = vec![Strategy::Test(account.clone()), Strategy::PriceMomentum(account.clone())];
 
-    runner.run(20230101, 20230513, strategies);
+    runner.run_back_test(20230101, 20230512, strategies);
 }

@@ -30,9 +30,9 @@ struct Token {
 impl Session {
     pub async fn new(app_key: String, app_secret: String, domain: String) -> Result<Session> {
         let mut session = Session {
-            app_key: app_key,
-            app_secret: app_secret,
-            domain: domain,
+            app_key,
+            app_secret,
+            domain,
             token: Token::default(),
             client: Client::new(),
             header: HeaderMap::new(),
