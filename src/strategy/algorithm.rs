@@ -26,7 +26,7 @@ impl Etc for DataBase {
     fn calc_all_cell(&mut self, stocks: &HashMap<String, u32>) -> i32 {
         let mut res = 0;
         for (stock, amount) in stocks {
-            res += self.get_columns(stock)[0].open_price * (*amount as i32)
+            res += self.get_columns(stock).unwrap()[0].open_price * (*amount as i32)
         }
         res
     }

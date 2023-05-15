@@ -1,8 +1,6 @@
 use std::{collections::HashMap, cmp::Ordering};
 use serde::Deserialize;
 use std::fs::File;
-use std::iter::Skip;
-use std::slice::Iter;
 
 #[derive(Debug, Deserialize)]
 pub struct Column {
@@ -19,14 +17,27 @@ pub struct Column {
 pub struct DataBase {
     db : HashMap<String, Vec<Column>>,
     pub stock_list : Vec<String>,
+    pub date_list : Vec<u32>,
 }
 
 impl DataBase {
     pub fn new() -> DataBase {
-        DataBase {
-            db : HashMap::new(),
-            stock_list : Self::load_list(),
+        let stock_list = Self::load_list();
+        let mut db : HashMap<String, Vec<Column>> = HashMap::new();
+        for stock in &stock_list {
+            let column = Self::load_data(stock);
+            db.insert(stock.to_owned(), column);
         }
+
+        let mut database = DataBase {
+            db,
+            stock_list,
+            date_list: Vec::new(),
+        };
+
+        database.date_list = database.load_date_list();
+
+        database
     }
 
     fn load_list() -> Vec<String> {
@@ -44,10 +55,10 @@ impl DataBase {
     }
 
     // must be fix
-    pub fn get_date_list(&mut self) -> Vec<u32> {
-        let columns = Self::load_data("005930");
+    fn load_date_list(&self) -> Vec<u32> {
+        let columns = self.get_columns("005930").unwrap();
         let mut results : Vec<u32> = Vec::with_capacity(columns.len());
-        for column in columns {
+        for column in columns.iter().rev() {
             let date = column.date.replace("-", "");
             let date_to_int = date.parse::<u32>().unwrap();
             results.push(date_to_int);
@@ -55,9 +66,23 @@ impl DataBase {
         results
     }
 
+    fn load_data(stock_no: &str) -> Vec<Column> {
+        let file_path = format!("./data/{}.csv", stock_no);
+        let file = File::open(file_path).unwrap();
+        let mut reader = csv::ReaderBuilder::new()
+            .delimiter(b' ')
+            .from_reader(file);
+        let mut columns : Vec<Column> = reader.deserialize::<Column>()
+            .map(Result::unwrap)
+            .collect();
+        columns.reverse();
+        columns
+    }
+
+
     // search date from date_list with lower bound
-    pub fn find_date(date_list: &Vec<u32>, date: u32) -> usize {
-        let position = date_list
+    pub fn idx_from_date(&self, date: u32) -> usize {
+        let position = self.date_list
             .binary_search_by(|d| match d.cmp(&date) {
                 Ordering::Equal => Ordering::Greater,
                 ord => ord,
@@ -67,25 +92,8 @@ impl DataBase {
         position
     }
 
-    // search date from date_list with lower bound
-    pub fn iter_date(date_list: &Vec<u32>, date: u32) -> Skip<Iter<u32>> {
-        let position = Self::find_date(date_list, date);
-        date_list.iter().skip(position)
-    }
-
-    fn load_data(stock_no: &str) -> Vec<Column> {
-        let file_path = format!("./data/{}.csv", stock_no);
-        let file = File::open(file_path).unwrap();
-        let mut reader = csv::ReaderBuilder::new()
-            .delimiter(b' ')
-            .from_reader(file);
-        reader.deserialize::<Column>()
-            .map(Result::unwrap)
-            .collect()
-    }
-
-    pub fn get_columns(&mut self, stock_no: &str) -> &Vec<Column> {
-        let columns = self.db.entry(stock_no.to_owned()).or_insert_with(|| { let mut data = DataBase::load_data(stock_no); data.reverse(); data });
+    pub fn get_columns(&self, stock_no: &str) -> Option<&Vec<Column>> {
+        let columns = self.db.get(stock_no);
         columns
     }
 }

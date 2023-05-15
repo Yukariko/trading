@@ -63,10 +63,9 @@ impl PriceMomentumStrategyIterator for DataBase {
     type Item = Vec<Command>;
     fn next(&mut self, idx: usize, account: &mut Account) -> Option<Self::Item> {
 
-        let mut res : Vec<(f64, String)> = Vec::new();
-        for i in 0..self.stock_list.len() {
-            let stock = self.stock_list[i].clone();
-            let columns = self.get_columns(&stock);
+        let mut res : Vec<(f64, &str)> = Vec::new();
+        for stock in &self.stock_list {
+            let columns = self.get_columns(&stock).unwrap();
             if columns.len() <= idx {
                 continue;
             }
@@ -84,12 +83,14 @@ impl PriceMomentumStrategyIterator for DataBase {
             let order_buy_cmd = <Command as OrderBuyCommand>::new(&account.account_no, &account.account_cd, best_stock, "1");
             return Some(vec![order_buy_cmd])
         }
-        let columns = self.get_columns(best_stock);
+
+        let columns = self.get_columns(best_stock).unwrap();
         let before_price = columns[idx - 1].open_price;
         if account.amount >= before_price {
             account.amount -= before_price;
             account.buy_stock(best_stock);
         }
+
         None
     }
 }
