@@ -38,18 +38,38 @@ pub trait TestStrategyIterator {
 }
 
 impl TestStrategyIterator for DataBase {
-    type Item = Vec<Command>;
+    type Item = Vec<Box<dyn ApiCommand>>;
     fn next(&mut self, idx: usize, account: &Account) -> Option<Self::Item> {
-        let price_cmd = <Command as PriceCommand>::new("005930");
+        let price_cmd = Command::<Price>::new()
+            .ticker("005930".to_string());
+
         // daily price of samsung
-        let daily_price_cmd = <Command as DailyPriceCommand>::new("005930", &Period::Day);
+        let daily_price_cmd = Command::<DailyPrice>::new()
+            .ticker("005930".to_string())
+            .period(Period::Day);
         // my balance
-        let balance_cmd = <Command as BalanceCommand>::new(&account.account_no, &account.account_cd);
+        let balance_cmd = Command::<Balance>::new()
+            .account_no(account.account_no.clone())
+            .account_cd(account.account_cd.clone());
         // buy samsung 1
-        let order_buy_cmd = <Command as OrderBuyCommand>::new(&account.account_no, &account.account_cd, "005930", "1");
+        let order_buy_cmd = Command::<OrderBuy>::new()
+            .account_no(account.account_no.clone())
+            .account_cd(account.account_cd.clone())
+            .ticker("005930".to_string())
+            .count("1".to_string());
         // sell samsung 1
-        let order_sell_cmd = <Command as OrderSellCommand>::new(&account.account_no, &account.account_cd, "005930", "1");
-        Some(vec![price_cmd, daily_price_cmd, balance_cmd, order_buy_cmd, order_sell_cmd])
+        let order_sell_cmd = Command::<OrderSell>::new()
+            .account_no(account.account_no.clone())
+            .account_cd(account.account_cd.clone())
+            .ticker("005930".to_string())
+            .count("1".to_string());
+        Some(vec![
+            Box::new(price_cmd),
+            Box::new(daily_price_cmd),
+            Box::new(balance_cmd),
+            Box::new(order_buy_cmd),
+            Box::new(order_sell_cmd)
+        ])
     }
 }
 
@@ -60,7 +80,7 @@ pub trait PriceMomentumStrategyIterator {
 
 impl PriceMomentumStrategyIterator for DataBase {
 
-    type Item = Vec<Command>;
+    type Item = Vec<Box<dyn ApiCommand>>;
     fn next(&mut self, idx: usize, account: &mut Account) -> Option<Self::Item> {
 
         let mut res : Vec<(f64, &str)> = Vec::new();
@@ -80,8 +100,12 @@ impl PriceMomentumStrategyIterator for DataBase {
         let (best_momentum, best_stock) = &res[res.len() - 1];
 
         if idx == 0 {
-            let order_buy_cmd = <Command as OrderBuyCommand>::new(&account.account_no, &account.account_cd, best_stock, "1");
-            return Some(vec![order_buy_cmd])
+            let order_buy_cmd = Command::<OrderBuy>::new()
+                .account_no(account.account_no.clone())
+                .account_cd(account.account_cd.clone())
+                .ticker(best_stock.to_string())
+                .count("1".to_string());
+            return Some(vec![Box::new(order_buy_cmd)])
         }
 
         let columns = self.get_columns(best_stock).unwrap();

@@ -5,7 +5,7 @@ pub mod command;
 pub mod database;
 pub mod strategy;
 pub mod time_runner;
-use command::{Command, Sender};
+use command::{ApiCommand, Sender};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -96,15 +96,15 @@ impl Session {
         Ok(result)
     }
 
-    pub async fn execute(&self, command: &Command) -> Result<serde_json::Value> {
-        let res = self.__fetch(command.base.path, command.base.tr_id, &command.base.sender, &command.args).await.expect("__fetch failed");
+    pub async fn execute(&self, command: &Box<dyn ApiCommand>) -> Result<serde_json::Value> {
+        let res = self.__fetch(command.path(), command.tr_id(), command.sender(), &command.body()).await.expect("__fetch failed");
         Ok(res)
     }
 
-    pub async fn execute_vec(&self, commands: &Vec<Command>) -> Result<Vec<serde_json::Value>> {
+    pub async fn execute_vec(&self, commands: &Vec<Box<dyn ApiCommand>>) -> Result<Vec<serde_json::Value>> {
         let mut results = Vec::<serde_json::Value>::with_capacity(commands.len());
         for command in commands {
-            let res = self.__fetch(command.base.path, command.base.tr_id, &command.base.sender, &command.args).await.expect("__fetch failed");
+            let res = self.execute(command).await.expect("execute failed");
             results.push(res);
         }
         Ok(results)
