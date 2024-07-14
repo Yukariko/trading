@@ -1,11 +1,15 @@
 use reqwest::{Client, header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE, ACCEPT_CHARSET}};
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use serde_json::json;
+use std::path::Path;
+use std::fs;
+use std::ops::Add;
+use chrono::{Utc, NaiveDateTime, FixedOffset};
+use command::{ApiCommand, Sender};
 pub mod command;
 pub mod database;
 pub mod strategy;
 pub mod time_runner;
-use command::{ApiCommand, Sender};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -18,13 +22,26 @@ pub struct Session {
     header : HeaderMap,
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Serialize, Debug, Default)]
 struct Token {
     access_token : String,
     #[serde(alias = "access_token_token_expired")]
     expired : String,
     token_type : String,
     expires_in : u32,
+}
+
+const TOKEN_FILE_PATH: &str = "token.json";
+
+impl Token {
+    fn is_expired(&self) -> bool {
+        let fixed = FixedOffset::east(3600 * 9);
+        let now: NaiveDateTime = Utc::now().naive_utc().add(fixed);
+        let expired = NaiveDateTime::parse_from_str(&self.expired, "%Y-%m-%d %H:%M:%S")
+            .expect("Failed to parse specific time");
+
+        now > expired
+    }
 }
 
 impl Session {
@@ -37,8 +54,9 @@ impl Session {
             client: Client::new(),
             header: HeaderMap::new(),
         };
-        session.token = session.request_token().await.expect("request token failed");
 
+        session.load_access_token().await;
+        
         session.header.insert(CONTENT_TYPE, HeaderValue::from_str("application/json").unwrap());
         session.header.insert(ACCEPT, HeaderValue::from_str("text/plain").unwrap());
         session.header.insert(ACCEPT_CHARSET, HeaderValue::from_str("UTF-8").unwrap());
@@ -46,6 +64,39 @@ impl Session {
         session.header.insert("appkey", HeaderValue::from_str(&session.app_key).unwrap());
         session.header.insert("appsecret", HeaderValue::from_str(&session.app_secret).unwrap());
         Ok(session)
+    }
+    
+    async fn read_token_from_file(&self) -> Option<Token> {
+        if Path::new(TOKEN_FILE_PATH).exists() {
+            let data = fs::read_to_string(TOKEN_FILE_PATH).ok()?;
+            let token: Token = serde_json::from_str(&data).ok()?;
+            Some(token)
+        } else {
+            None
+        }
+    }
+
+    async fn save_token_to_file(&self) {
+        let data = serde_json::to_string(&self.token).unwrap();
+        fs::write(TOKEN_FILE_PATH, data).expect("Unable to write token to file");
+    }
+
+    async fn load_access_token(&mut self) {
+        match self.read_token_from_file().await {
+            Some(token) => {
+                self.token = token;
+                if self.token.is_expired() {
+                    self.token = self.request_token().await
+                        .expect("request token failed");
+                    self.save_token_to_file().await;
+                }
+            },
+            None => {
+                self.token = self.request_token().await
+                    .expect("request token failed");
+                self.save_token_to_file().await;
+            },
+        };
     }
 
     async fn request_token(&self) -> Result<Token> {
