@@ -1,6 +1,6 @@
 use dotenv::dotenv;
 use std::env;
-use trading::Session;
+use trading::{Session, WsSession, WsKey};
 use trading::time_runner::TimeRunner;
 use trading::strategy::*;
 
@@ -10,8 +10,13 @@ async fn main() {
     let app_key = env::var("APP_KEY").expect("APP_KEY must be set.");
     let app_secret = env::var("APP_SECRET").expect("APP_SECRET must be set.");
     let domain = env::var("DOMAIN").expect("DOMAIN must be set");
-    let session = Session::new(app_key, app_secret, domain).await.expect("create session failed");
-
+    let session = Session::new(app_key, app_secret, domain).await
+        .expect("create session failed");
+    let ws_domain = env::var("WS_DOMAIN").expect("WS_DOMAIN must be set");
+    let ws_key = session.request_ws_key().await
+        .expect("Failed to get approval_key");
+    let ws_session = WsSession::new(ws_key, ws_domain).await
+        .expect("create ws_session failed");
     let mut runner = TimeRunner::new(session);
 
     let account_no = env::var("ACCOUNT_NO").expect("ACCOUNT_NO must be set");

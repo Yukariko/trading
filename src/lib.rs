@@ -31,11 +31,16 @@ struct Token {
     expires_in : u32,
 }
 
+#[derive(Deserialize, Serialize, Debug, Default)]
+pub struct WsKey {
+    approval_key : String,
+}
+
 const TOKEN_FILE_PATH: &str = "token.json";
 
 impl Token {
     fn is_expired(&self) -> bool {
-        let fixed = FixedOffset::east(3600 * 9);
+        let fixed = FixedOffset::east_opt(3600 * 9).unwrap();
         let now: NaiveDateTime = Utc::now().naive_utc().add(fixed);
         let expired = NaiveDateTime::parse_from_str(&self.expired, "%Y-%m-%d %H:%M:%S")
             .expect("Failed to parse specific time");
@@ -56,7 +61,6 @@ impl Session {
         };
 
         session.load_access_token().await;
-        
         session.header.insert(CONTENT_TYPE, HeaderValue::from_str("application/json").unwrap());
         session.header.insert(ACCEPT, HeaderValue::from_str("text/plain").unwrap());
         session.header.insert(ACCEPT_CHARSET, HeaderValue::from_str("UTF-8").unwrap());
@@ -115,6 +119,22 @@ impl Session {
         Ok(res)
     }
 
+    pub async fn request_ws_key(&self) -> Result<WsKey> {
+        let url = format!("{}/oauth2/Approval", self.domain);
+        let body = json!({
+            "grant_type": "client_credentials",
+            "appkey": self.app_key,
+            "secretkey": self.app_secret,
+        });
+
+        let response = self.client
+            .post(url)
+            .json(&body)
+            .send().await.expect("request send failed");
+        let res : WsKey = response.json().await?;
+        Ok(res)
+    }
+
     async fn __fetch(&self, path: &str, tr_id: &str, sender: &Sender, body: &Option<serde_json::Value>) -> Result<serde_json::Value> {
         let url = format!("{}{}", self.domain, path);
         let mut header = self.header.clone();
@@ -160,4 +180,37 @@ impl Session {
         }
         Ok(results)
     }
+}
+
+pub struct WsSession {
+    key : WsKey,
+    domain : String,
+    body : serde_json::Value,
+}
+
+impl WsSession {
+    pub async fn new(key: WsKey, domain: String) -> Result<Self> {
+        let body = json!({
+            "header" : {
+                "approval_key" : key.approval_key,
+                "custtype" : "P",
+                "tr_type" : "1",
+                "content-type" : "utf-8",
+            },
+            "body" : {
+                "input" : {
+                    "tr_id" : "",
+                    "tr_key" : "",
+                }
+            }
+        });
+        let ws_session = WsSession {
+            key,
+            domain,
+            body,
+        };
+
+        Ok(ws_session)
+    }
+
 }
